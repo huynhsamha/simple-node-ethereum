@@ -179,6 +179,45 @@ const winningProposal = async ({ contractAddress }, cb) => {
 };
 
 /**
+ * Call method `giveRightToVote(address toVoter)` from smart contract
+ * Will send a transaction to the smart contract and execute its method.
+ * Note this can alter the smart contract state.
+ * @param {contractAddress}: the address of contract, example such as `demoBallotContractAddress`
+ * @param {fromAddress}: the address of sender, example such as process.env.ROPSTEN_ADDRESS_A, or web3.eth.defaultAccount
+ */
+const vote = async ({ contractAddress, toProposal, fromAddress }) => {
+  try {
+    const BallotContract = new web3.eth.Contract(abi, contractAddress);
+
+    const txInstance = BallotContract.methods.vote(toProposal);
+
+    // TODO: estimate gas is not working here
+    // const gasLimit = await txInstance.estimateGas();
+    const gasLimit = web3.utils.toHex(1e5);
+    console.log('Gas limit:', gasLimit);
+
+    txInstance.send({
+      from: fromAddress,
+      gas: gasLimit,
+      gasPrice
+    })
+      .on('transactionHash', (txHash) => {
+        console.log('Transaction Hash: ', txHash);
+        // store database here, send response to client
+      })
+      .on('receipt', (receipt) => {
+        console.log('Receipt: ', receipt);
+      })
+      .on('error', (err) => {
+        console.log(err);
+      });
+
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+/**
  * Start here
  * */
 configDefaultAccount();
@@ -199,6 +238,12 @@ setTimeout(() => {
   //   toVoterAddress: process.env.ROPSTEN_ADDRESS_A
   // });
 
-  // winningProposal({ contractAddress: demoBallotContractAddress });
+  winningProposal({ contractAddress: demoBallotContractAddress });
+
+  // vote({
+  //   contractAddress: demoBallotContractAddress,
+  //   toProposal: 2,
+  //   fromAddress: process.env.ROPSTEN_ADDRESS_A
+  // });
 
 }, 1000);
