@@ -20,6 +20,9 @@ const gasPrice = web3.utils.toHex(1e9);
 
 const demoBallotContractAddress = '0xeCa88b23A42e54e5497cDa8a2c6307439bF3A6c8';
 
+const accountIsFree = []; // Mark if ETH Account is free (true/false), default is true => free
+let numberAccounts = 0;
+
 /**
  * Configure Functions
  * use async for similar with configDefaultAccount_Local
@@ -31,11 +34,14 @@ const configDefaultAccount_TestNet = async () => {
    */
   const privateKey = config.eth.ropstenPrivateKey;
   const account = web3.eth.accounts.privateKeyToAccount(`0x${privateKey}`);
-  web3.eth.accounts.wallet.add(account);
 
   // add test accounts
   web3.eth.accounts.wallet.add(web3.eth.accounts.privateKeyToAccount(`0x${process.env.ROPSTEN_PRIVATE_KEY_A}`));
   web3.eth.accounts.wallet.add(web3.eth.accounts.privateKeyToAccount(`0x${process.env.ROPSTEN_PRIVATE_KEY_B}`));
+  web3.eth.accounts.wallet.add(web3.eth.accounts.privateKeyToAccount(`0x${process.env.ROPSTEN_PRIVATE_KEY_C}`));
+  web3.eth.accounts.wallet.add(web3.eth.accounts.privateKeyToAccount(`0x${process.env.ROPSTEN_PRIVATE_KEY_D}`));
+
+  web3.eth.accounts.wallet.add(account);
 
   /** Set the default account, used to `from` */
   web3.eth.defaultAccount = account.address;
@@ -54,6 +60,12 @@ const configDefaultAccount = async () => {
   }
 
   console.log('Default account address:', web3.eth.defaultAccount);
+
+  // Mark free for all account
+  numberAccounts = web3.eth.accounts.wallet.length;
+  for (let i = 0; i < numberAccounts; i++) {
+    accountIsFree.push(true);
+  }
 };
 
 
@@ -66,6 +78,13 @@ const configDefaultAccount = async () => {
 /** Get nonce of default account */
 const getNonce = () => {
   web3.eth.getTransactionCount(web3.eth.defaultAccount)
+    .then(nonce => console.log('Nonce: ', nonce))
+    .catch(err => console.log(err));
+};
+
+/** Get nonce with pending of default account */
+const getNoncePending = () => {
+  web3.eth.getTransactionCount(web3.eth.defaultAccount, 'pending')
     .then(nonce => console.log('Nonce: ', nonce))
     .catch(err => console.log(err));
 };
@@ -87,7 +106,7 @@ const deployBallotContract = async ({ numProposals }) => {
     console.log('Gas limit: ', gasLimit);
 
     txInstance.send({
-      from: web3.eth.defaultAccount,
+      from: address,
       gas: gasLimit,
       gasPrice
     })
@@ -196,13 +215,42 @@ const vote = async ({ contractAddress, toProposal, fromAddress }) => {
     const gasLimit = web3.utils.toHex(1e5);
     console.log('Gas limit:', gasLimit);
 
+    let address = fromAddress;
+    let index = -1;
+
+    if (!address) {
+      // find free account now
+      index = accountIsFree.indexOf(true);
+      if (index != -1) { // exist free account
+        accountIsFree[index] = false;
+        address = web3.eth.accounts.wallet[index].address;
+
+        console.log('Index - False:', index);
+      } else {
+        // TODO: ???
+      }
+    }
+
+    console.log('Address:', address);
+
+    // get Nonce with option pending, for handle parallel request
+    const nonce = await web3.eth.getTransactionCount(address, 'pending');
+    console.log('Nonce:', nonce);
+
     txInstance.send({
-      from: fromAddress,
+      from: address,
       gas: gasLimit,
-      gasPrice
+      gasPrice,
+      nonce
     })
       .on('transactionHash', (txHash) => {
         console.log('Transaction Hash: ', txHash);
+        // mark address is free now
+        if (index != -1) {
+          accountIsFree[index] = true;
+          console.log('Index - True:', index);
+        }
+
         // store database here, send response to client
       })
       .on('receipt', (receipt) => {
@@ -230,6 +278,7 @@ setTimeout(() => {
   console.log('Started. Please waiting...');
 
   // getNonce();
+  // getNoncePending();
 
   // deployBallotContract({ numProposals: 5 });
 
@@ -238,12 +287,27 @@ setTimeout(() => {
   //   toVoterAddress: process.env.ROPSTEN_ADDRESS_A
   // });
 
-  winningProposal({ contractAddress: demoBallotContractAddress });
+  // winningProposal({ contractAddress: demoBallotContractAddress });
 
   // vote({
   //   contractAddress: demoBallotContractAddress,
-  //   toProposal: 2,
-  //   fromAddress: process.env.ROPSTEN_ADDRESS_A
+  //   toProposal: 1,
+  //   fromAddress: process.env.ROPSTEN_ADDRESS_B
   // });
+
+
+  // Vote without fromAddress
+  vote({
+    contractAddress: demoBallotContractAddress,
+    toProposal: 1
+  });
+  vote({
+    contractAddress: demoBallotContractAddress,
+    toProposal: 1
+  });
+  vote({
+    contractAddress: demoBallotContractAddress,
+    toProposal: 1
+  });
 
 }, 1000);
