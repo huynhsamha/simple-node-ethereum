@@ -1,6 +1,8 @@
-# Simple Ethereum
+# Simple NodeJS Ethereum
 
 Smart contract, Ropsten Test Network Ethereum, MetaMask, Infura, Web3, Truffle.
+
+If you're interested in Golang connecting to Ethereum, please reference my simple-go-ethereum here: https://github.com/huynhsamha/simple-go-ethereum
 
 ## Step by step
 
